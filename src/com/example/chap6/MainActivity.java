@@ -4,9 +4,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
@@ -86,7 +92,16 @@ public class MainActivity extends Activity
 			EditText et = (EditText)parent.findViewWithTag("et");
 			TextView tv  = (TextView)parent.findViewWithTag("tv");
 			try {
-				writeToFile(this, et.getText().toString()); // ファイルへの書き込み処理
+	//			writeToFile(this, et.getText().toString()); // ファイルへの書き込み処理
+				//writeToTable(et.getText().toString(), false); // テーブルに追加
+				SharedPreferences prefs
+					= getSharedPreferences("myprefs", MODE_PRIVATE);
+				SharedPreferences.Editor editor = prefs.edit();
+				editor.putString("text", et.getText().toString());
+				editor.putString("Title", "Javaの絵本");
+				editor.putInt("Pages", 213);
+				editor.putInt("Price", 1580);
+				editor.commit();
 			} catch (Exception e) {
 				tv.setText("ERROR:" + e.getMessage());
 			}
@@ -94,7 +109,9 @@ public class MainActivity extends Activity
 			View parent = (View)v.getParent();
 			TextView tv  = (TextView)parent.findViewWithTag("tv");
 			try {
-				tv.setText(readFromFile(this)); // ファイルの読み込み処理
+//				tv.setText(readFromFile(this)); // ファイルの読み込み処理
+				//tv.setText(readFromTable());	// テーブルからの読み出し
+				tv.setText(readFromPrefs()); // プレファレンスからの読み込み
 			} catch (Exception e) {
 				tv.setText("ERROR:" + e.getMessage());
 			}
@@ -153,5 +170,67 @@ public class MainActivity extends Activity
 			}
 		}
 		return "";
+	}
+	
+	private void writeToTable(String data, boolean overwrite){
+		ContentValues vals = new ContentValues();
+		vals.put("data", data);
+		String whereClause = "id = 1";
+		String [] whereArgs = null;
+		
+		DBHelper dbh = new DBHelper(this);
+		SQLiteDatabase db = dbh.getWritableDatabase();
+		
+		try{
+			if(overwrite){
+				db.update(DBHelper.TABLENAME, vals, whereClause, whereArgs);
+			}else{
+                db.insert(DBHelper.TABLENAME, "", vals);
+			}
+		}finally{
+			db.close();
+		}
+	}
+	
+	private String readFromTable(){
+		String[] columns = {"id", "data"};
+		String selection = null;
+		String[] selectionArgs = null;
+		String groupBy = null;
+		String having = null;
+		String orderBy = null;
+		
+		StringBuffer sb = new StringBuffer();
+		Cursor cur = null;
+		
+		DBHelper dbh = new DBHelper(this);
+		SQLiteDatabase db = dbh.getReadableDatabase();
+		try{
+				cur = db.query(DBHelper.TABLENAME, columns, selection, 
+                        selectionArgs, groupBy, having, orderBy);
+				while(cur.moveToNext()){
+					sb.append(cur.getInt(0) + "," + cur.getString(1) + "\n");
+				}
+		}finally{
+			if(cur != null){
+				cur.close();
+			}
+			db.close();
+		}
+		return sb.toString();
+	}
+	
+	private String readFromPrefs(){
+		StringBuffer sb = new StringBuffer();
+		
+		SharedPreferences prefs
+			= getSharedPreferences("myprefs", MODE_PRIVATE);
+		Map<String, ?> map = prefs.getAll();
+		for(Entry<String, ?> entry : map.entrySet()){
+			String key = entry.getKey();
+			Object value = entry.getValue();
+			sb.append(key + "|" + value.toString() + "\n");
+		}
+		return  sb.toString();
 	}
 }
